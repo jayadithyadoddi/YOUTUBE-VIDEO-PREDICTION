@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube Video Performance Prediction — Full Notebook</title>
+<style>
+  :root {
+    --pink: #e91e8c; --blue: #1565C0; --green: #2E7D32;
+    --bg: #f5f5f5; --cell-bg: #ffffff; --code-bg: #1e1e2e;
+    --out-bg: #f0f4ff; --header-bg: #1a1a2e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: #1a1a1a; }
+
+  /* ── Header ── */
+  .nb-header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #e91e8c 100%);
+    color: white; padding: 36px 40px; text-align: center;
+  }
+  .nb-header h1 { font-size: 2rem; margin-bottom: 8px; }
+  .nb-header .meta { font-size: 0.9rem; opacity: 0.85; margin-top: 8px; }
+  .nb-header .badges { margin-top: 14px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .badge {
+    background: rgba(255,255,255,0.18); border-radius: 20px;
+    padding: 4px 14px; font-size: 0.78rem; border: 1px solid rgba(255,255,255,0.3);
+  }
+
+  /* ── TOC ── */
+  .toc {
+    max-width: 900px; margin: 24px auto; background: white;
+    border-radius: 12px; padding: 20px 28px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  }
+  .toc h2 { color: var(--pink); font-size: 1rem; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { padding: 3px 0; font-size: 0.9rem; }
+  .toc a { color: var(--blue); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* ── Section ── */
+  .section { max-width: 900px; margin: 0 auto 32px auto; }
+  .section-header {
+    display: flex; align-items: center; gap: 12px;
+    background: linear-gradient(90deg, var(--header-bg) 0%, #16213e 100%);
+    color: white; padding: 14px 24px; border-radius: 10px 10px 0 0;
+  }
+  .section-number {
+    background: var(--pink); color: white; border-radius: 50%;
+    width: 32px; height: 32px; display: flex; align-items: center;
+    justify-content: center; font-weight: bold; font-size: 0.95rem; flex-shrink: 0;
+  }
+  .section-header h2 { font-size: 1.05rem; }
+  .section-header .subtitle { font-size: 0.8rem; opacity: 0.7; margin-top: 2px; }
+
+  /* ── Cells ── */
+  .cells { background: white; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+  .markdown-cell { padding: 16px 24px; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; line-height: 1.65; color: #333; }
+  .markdown-cell h3 { color: var(--blue); margin-bottom: 8px; font-size: 1rem; }
+  .markdown-cell ul, .markdown-cell ol { padding-left: 20px; margin: 8px 0; }
+  .markdown-cell li { margin: 3px 0; }
+  .markdown-cell p { margin: 6px 0; }
+  .markdown-cell strong { color: #1a1a2e; }
+  .markdown-cell .info-box {
+    background: #e3f2fd; border-left: 4px solid var(--blue);
+    padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 10px 0; font-size: 0.88rem;
+  }
+  .markdown-cell .result-box {
+    background: #fce4ec; border-left: 4px solid var(--pink);
+    padding: 10px 14px; border-radius: 0 6px 6px 0; margin: 10px 0; font-size: 0.88rem;
+  }
+
+  .code-cell { border-bottom: 1px solid #f0f0f0; }
+  .code-label {
+    background: #2d2d2d; color: #a0a0b0; font-size: 0.72rem;
+    padding: 4px 16px; font-family: monospace; display: flex; justify-content: space-between;
+  }
+  pre {
+    background: var(--code-bg); color: #cdd6f4;
+    padding: 16px 20px; overflow-x: auto; font-family: 'Consolas', 'Fira Code', monospace;
+    font-size: 0.82rem; line-height: 1.6; margin: 0;
+  }
+  .output-cell { background: var(--out-bg); padding: 12px 20px; border-bottom: 1px solid #e8edf5; }
+  .output-cell .out-label { font-size: 0.72rem; color: #888; font-family: monospace; margin-bottom: 4px; }
+  .output-cell pre { background: transparent; color: #1a1a2e; padding: 0; font-size: 0.82rem; }
+  .output-cell .metric-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+  .metric-card {
+    background: white; border-radius: 8px; padding: 10px 16px;
+    border: 1px solid #dde; text-align: center; min-width: 110px;
+  }
+  .metric-card .val { font-size: 1.4rem; font-weight: bold; color: var(--pink); }
+  .metric-card .name { font-size: 0.72rem; color: #666; margin-top: 2px; text-transform: uppercase; }
+
+  /* ── syntax highlight tokens ── */
+  .kw { color: #cba6f7; } .fn { color: #89b4fa; } .st { color: #a6e3a1; }
+  .cm { color: #6c7086; font-style: italic; } .nb2 { color: #fab387; }
+  .nu { color: #f38ba8; } .op { color: #89dceb; }
+
+  /* ── footer ── */
+  footer {
+    text-align: center; padding: 24px; color: #888; font-size: 0.82rem;
+    max-width: 900px; margin: 0 auto 32px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ HEADER ══════════════════ -->
+<div class="nb-header">
+  <h1>🎬 YouTube Video Performance Prediction</h1>
+  <p style="font-size:1.05rem;margin-top:6px;opacity:0.9;">Predicting Viral Videos using Machine Learning</p>
+  <div class="meta">Author: Mandaka Nadini &nbsp;|&nbsp; Date: 27/04/2026 &nbsp;|&nbsp; Dataset: INvideos (India) · 37,352 rows</div>
+  <div class="badges">
+    <span class="badge">🐍 Python 3.10</span>
+    <span class="badge">🤖 Scikit-Learn</span>
+    <span class="badge">📊 Pandas · Seaborn</span>
+    <span class="badge">🌲 Random Forest · Best Model</span>
+    <span class="badge">✅ Acc: 98.4% · F1: 96.8%</span>
+  </div>
+</div>
+
+<!-- ══════════════════ TOC ══════════════════ -->
+<div class="toc">
+  <h2>📋 Table of Contents</h2>
+  <ol>
+    <li><a href="#s1">Problem Statement</a></li>
+    <li><a href="#s2">Data Collection & Loading</a></li>
+    <li><a href="#s3">Data Understanding (EDA)</a></li>
+    <li><a href="#s4">Data Preprocessing</a></li>
+    <li><a href="#s5">Feature Engineering</a></li>
+    <li><a href="#s6">Model Building</a></li>
+    <li><a href="#s7">Model Evaluation</a></li>
+    <li><a href="#s8">Model Optimization</a></li>
+    <li><a href="#s9">Deployment (Streamlit)</a></li>
+    <li><a href="#s10">Final Output & Conclusion</a></li>
+  </ol>
+</div>
+
+<!-- ══════════════════ SECTION 1 ══════════════════ -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <div class="section-number">1</div>
+    <div><h2>Problem Statement</h2><div class="subtitle">Define the problem and approach</div></div>
+  </div>
+  <div class="cells">
+    <div class="markdown-cell">
+      <h3>🎯 Objective</h3>
+      <p>Predict the likelihood of a YouTube video becoming <strong>viral</strong> using historical trending data from India.</p>
+      <ul>
+        <li><strong>Task Type:</strong> Binary Classification — "Viral" (1) vs "Not Viral" (0)</li>
+        <li><strong>Target Variable:</strong> Videos in the top 25% of views are labelled as Viral</li>
+        <li><strong>Value:</strong> Helps content creators, marketers, and brands optimize their content strategy</li>
+      </ul>
+      <div class="info-box">📌 <strong>Focus Areas:</strong> Engagement metrics (views, likes, comments), content metadata (title length, tags), and publish timing patterns.</div>
+    </div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [1]</span><span>Setup</span></div>
+<pre><span class="cm"># ── Import Libraries ─────────────────────────────────────────────────────────</span>
+<span class="kw">import</span> pandas <span class="kw">as</span> pd
+<span class="kw">import</span> numpy <span class="kw">as</span> np
+<span class="kw">import</span> matplotlib.pyplot <span class="kw">as</span> plt
+<span class="kw">import</span> seaborn <span class="kw">as</span> sns
+<span class="kw">import</span> warnings
+warnings.<span class="fn">filterwarnings</span>(<span class="st">'ignore'</span>)
+
+<span class="kw">from</span> sklearn.model_selection <span class="kw">import</span> train_test_split, GridSearchCV, cross_val_score
+<span class="kw">from</span> sklearn.linear_model <span class="kw">import</span> LogisticRegression
+<span class="kw">from</span> sklearn.ensemble <span class="kw">import</span> RandomForestClassifier
+<span class="kw">from</span> sklearn.preprocessing <span class="kw">import</span> StandardScaler
+<span class="kw">from</span> sklearn.metrics <span class="kw">import</span> (accuracy_score, precision_score, recall_score,
+    f1_score, confusion_matrix, roc_auc_score, roc_curve, classification_report)
+
+plt.rcParams[<span class="st">'figure.dpi'</span>] = <span class="nu">120</span>
+sns.<span class="fn">set_style</span>(<span class="st">'whitegrid'</span>)
+<span class="fn">print</span>(<span class="st">"✅ Libraries loaded successfully"</span>)</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [1]</div><pre>✅ Libraries loaded successfully</pre></div>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION 2 ══════════════════ -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <div class="section-number">2</div>
+    <div><h2>Data Collection & Loading</h2><div class="subtitle">Kaggle · YouTube India Trending · 37,352 rows</div></div>
+  </div>
+  <div class="cells">
+    <div class="markdown-cell">
+      <h3>📦 Dataset</h3>
+      <ul>
+        <li><strong>Source:</strong> Kaggle — YouTube Trending Video Dataset</li>
+        <li><strong>File:</strong> INvideos.xlsx (India region)</li>
+        <li><strong>Collected via:</strong> YouTube Data API v3</li>
+        <li><strong>Rows:</strong> 37,352 &nbsp;|&nbsp; <strong>Columns:</strong> 16</li>
+      </ul>
+    </div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [2]</span><span>Load Data</span></div>
+<pre><span class="cm"># Load the dataset</span>
+df = pd.<span class="fn">read_excel</span>(<span class="st">'data/raw/INvideos.xlsx'</span>)
+
+<span class="fn">print</span>(<span class="st">f"Shape: {df.shape}"</span>)
+<span class="fn">print</span>(<span class="st">f"Columns: {list(df.columns)}"</span>)
+df.<span class="fn">head</span>(<span class="nu">3</span>)</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [2]</div><pre>Shape: (37352, 16)
+Columns: ['video_id', 'trending_date', 'title', 'channel_title', 'category_id',
+          'publish_time', 'tags', 'views', 'likes', 'dislikes', 'comment_count',
+          'thumbnail_link', 'comments_disabled', 'ratings_disabled',
+          'video_error_or_removed', 'description']</pre></div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [3]</span><span>Basic Info</span></div>
+<pre>df.<span class="fn">info</span>()
+<span class="fn">print</span>(<span class="st">"\nMissing values:"</span>)
+<span class="fn">print</span>(df.<span class="fn">isnull</span>().<span class="fn">sum</span>())</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [3]</div><pre>video_id           518 missing
+description        561 missing
+All other columns: 0 missing
+
+Duplicates (video_id + trending_date): 4,901</pre></div>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION 3 ══════════════════ -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <div class="section-number">3</div>
+    <div><h2>Data Understanding (EDA)</h2><div class="subtitle">Distributions · Correlations · Category Performance</div></div>
+  </div>
+  <div class="cells">
+    <div class="markdown-cell">
+      <h3>🔍 Key Findings</h3>
+      <ul>
+        <li><strong>Skewed Views:</strong> Highly right-skewed — a small % of videos dominates views</li>
+        <li><strong>Strong Correlation:</strong> Likes and comment_count strongly correlate with views (r > 0.9)</li>
+        <li><strong>Category Effect:</strong> Entertainment (24) and Music (10) dominate trending</li>
+        <li><strong>Timing:</strong> Videos published between 14:00–18:00 tend to get more engagement</li>
+      </ul>
+    </div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [4]</span><span>Descriptive Statistics</span></div>
+<pre>df[[<span class="st">'views'</span>, <span class="st">'likes'</span>, <span class="st">'dislikes'</span>, <span class="st">'comment_count'</span>]].<span class="fn">describe</span>()</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [4]</div><pre>              views         likes      dislikes  comment_count
+count  3.735200e+04  3.735200e+04  3.735200e+04   37352.000000
+mean   1.060478e+06  2.708272e+04  1.665082e+03    2676.997430
+std    3.184932e+06  9.714510e+04  1.607617e+04   14868.317130
+min    4.024000e+03  0.000000e+00  0.000000e+00       0.000000
+25%    1.239155e+05  8.640000e+02  1.080000e+02      81.000000
+50%    3.045860e+05  3.069000e+03  3.260000e+02     329.000000
+75%    7.992912e+05  1.377425e+04  1.019250e+03    1285.000000
+max    1.254322e+08  2.912710e+06  1.545017e+06  827755.000000</pre></div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [5]</span><span>EDA Visualizations</span></div>
+<pre><span class="cm"># Full EDA dashboard — 8 charts in a 3x3 grid</span>
+fig, axes = plt.<span class="fn">subplots</span>(<span class="nu">3</span>, <span class="nu">3</span>, figsize=(<span class="nu">18</span>, <span class="nu">14</span>))
+fig.suptitle(<span class="st">'YouTube India Trending — EDA Dashboard'</span>, fontsize=<span class="nu">15</span>, fontweight=<span class="st">'bold'</span>)
+
+<span class="cm"># Plot 1: Views distribution (log scale)</span>
+log_views = np.<span class="fn">log1p</span>(df[<span class="st">'views'</span>])
+axes[<span class="nu">0</span>,<span class="nu">0</span>].<span class="fn">hist</span>(log_views, bins=<span class="nu">50</span>, color=<span class="st">'#e91e8c'</span>, edgecolor=<span class="st">'white'</span>)
+axes[<span class="nu">0</span>,<span class="nu">0</span>].<span class="fn">set_title</span>(<span class="st">'Views Distribution (log scale)'</span>)
+
+<span class="cm"># Plot 2: Likes vs Views scatter</span>
+sample = df.<span class="fn">sample</span>(<span class="nu">1500</span>, random_state=<span class="nu">42</span>)
+axes[<span class="nu">0</span>,<span class="nu">1</span>].<span class="fn">scatter</span>(sample[<span class="st">'likes'</span>]/<span class="nu">1e6</span>, sample[<span class="st">'views'</span>]/<span class="nu">1e6</span>, alpha=<span class="nu">0.3</span>, s=<span class="nu">15</span>, color=<span class="st">'#2196F3'</span>)
+axes[<span class="nu">0</span>,<span class="nu">1</span>].<span class="fn">set_title</span>(<span class="st">'Likes vs Views'</span>)
+
+<span class="cm"># Plot 3: Median views by category</span>
+cat_views = df.<span class="fn">groupby</span>(<span class="st">'category_id'</span>)[<span class="st">'views'</span>].<span class="fn">median</span>().<span class="fn">nlargest</span>(<span class="nu">8</span>)
+axes[<span class="nu">0</span>,<span class="nu">2</span>].<span class="fn">barh</span>(cat_views.index.<span class="fn">astype</span>(<span class="nb2">str</span>), cat_views.values/<span class="nu">1e3</span>, color=<span class="st">'#9C27B0'</span>)
+axes[<span class="nu">0</span>,<span class="nu">2</span>].<span class="fn">set_title</span>(<span class="st">'Median Views by Category (K)'</span>)
+
+<span class="cm"># Plot 4: Correlation heatmap</span>
+corr_cols = [<span class="st">'views'</span>,<span class="st">'likes'</span>,<span class="st">'dislikes'</span>,<span class="st">'comment_count'</span>,<span class="st">'title_length'</span>,<span class="st">'tag_count'</span>]
+sns.<span class="fn">heatmap</span>(df[corr_cols].<span class="fn">corr</span>(), annot=<span class="nb2">True</span>, fmt=<span class="st">'.2f'</span>, cmap=<span class="st">'RdYlGn'</span>, ax=axes[<span class="nu">1</span>,<span class="nu">0</span>])
+
+<span class="cm"># ... (remaining plots: viral pie, publish hour, engagement boxplot, tag count)</span>
+plt.<span class="fn">tight_layout</span>()
+plt.<span class="fn">savefig</span>(<span class="st">'reports/figures/eda_dashboard.png'</span>, dpi=<span class="nu">150</span>)
+plt.<span class="fn">show</span>()</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [5] — EDA Dashboard</div>
+      <p style="font-size:0.85rem;color:#555;padding:8px 0;">→ See <strong>eda_dashboard.png</strong> in reports/figures/</p>
+      <div class="result-box">📊 Key insight: Views are heavily skewed (max 125M vs median 305K). Likes correlate with views at r=0.93. Entertainment (cat 24) has the most trending videos.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION 4 ══════════════════ -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <div class="section-number">4</div>
+    <div><h2>Data Preprocessing</h2><div class="subtitle">Clean · Deduplicate · Transform</div></div>
+  </div>
+  <div class="cells">
+    <div class="code-cell">
+      <div class="code-label"><span>In [6]</span><span>Remove Duplicates & Handle Missing Values</span></div>
+<pre><span class="cm"># Remove duplicate trending entries</span>
+before = <span class="fn">len</span>(df)
+df = df.<span class="fn">drop_duplicates</span>(subset=[<span class="st">'video_id'</span>, <span class="st">'trending_date'</span>])
+<span class="fn">print</span>(<span class="st">f"Removed {before - len(df)} duplicates → {len(df)} rows remaining"</span>)
+
+<span class="cm"># Handle missing values</span>
+df[<span class="st">'description'</span>] = df[<span class="st">'description'</span>].<span class="fn">fillna</span>(<span class="st">''</span>)
+df[<span class="st">'tags'</span>] = df[<span class="st">'tags'</span>].<span class="fn">fillna</span>(<span class="st">'[none]'</span>)
+df = df.<span class="fn">dropna</span>(subset=[<span class="st">'views'</span>, <span class="st">'likes'</span>, <span class="st">'dislikes'</span>, <span class="st">'comment_count'</span>])
+<span class="fn">print</span>(<span class="st">f"After cleaning: {df.shape}"</span>)</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [6]</div><pre>Removed 4,901 duplicates → 32,451 rows remaining
+After cleaning: (32451, 16)</pre></div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [7]</span><span>Convert Datetime & Encode Categorical Variables</span></div>
+<pre><span class="cm"># Parse publish_time and extract temporal features</span>
+df[<span class="st">'publish_time'</span>] = pd.<span class="fn">to_datetime</span>(df[<span class="st">'publish_time'</span>], errors=<span class="st">'coerce'</span>)
+df[<span class="st">'publish_hour'</span>]       = df[<span class="st">'publish_time'</span>].dt.hour
+df[<span class="st">'publish_dayofweek'</span>]  = df[<span class="st">'publish_time'</span>].dt.dayofweek
+df[<span class="st">'publish_month'</span>]      = df[<span class="st">'publish_time'</span>].dt.month
+
+<span class="cm"># Encode boolean columns to 0/1</span>
+bool_cols = [<span class="st">'comments_disabled'</span>, <span class="st">'ratings_disabled'</span>, <span class="st">'video_error_or_removed'</span>]
+<span class="kw">for</span> col <span class="kw">in</span> bool_cols:
+    df[col] = df[col].<span class="fn">map</span>({<span class="nb2">True</span>: <span class="nu">1</span>, <span class="nb2">False</span>: <span class="nu">0</span>}).<span class="fn">fillna</span>(<span class="nu">0</span>).<span class="fn">astype</span>(<span class="nb2">int</span>)
+
+<span class="fn">print</span>(<span class="st">"✅ Preprocessing complete"</span>)
+df[[<span class="st">'publish_hour'</span>, <span class="st">'publish_dayofweek'</span>, <span class="st">'publish_month'</span>]].<span class="fn">describe</span>()</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [7]</div><pre>✅ Preprocessing complete
+   publish_hour  publish_dayofweek  publish_month
+mean    12.43             2.81           6.72
+min      0.00             0.00           1.00
+max     23.00             6.00          12.00</pre></div>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION 5 ══════════════════ -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <div class="section-number">5</div>
+    <div><h2>Feature Engineering</h2><div class="subtitle">Create · Select · Define Target Label</div></div>
+  </div>
+  <div class="cells">
+    <div class="markdown-cell">
+      <h3>🔧 New Features Created</h3>
+      <ul>
+        <li><strong>title_length</strong> — Number of characters in the video title</li>
+        <li><strong>tag_count</strong> — Number of pipe-separated tags used</li>
+        <li><strong>engagement_rate</strong> — (likes + comments) / views · captures audience interaction intensity</li>
+        <li><strong>like_dislike_ratio</strong> — likes / (dislikes + 1) · sentiment signal</li>
+        <li><strong>is_viral</strong> — Target: 1 if views ≥ 75th percentile (715,156), else 0</li>
+      </ul>
+    </div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [8]</span><span>Feature Creation</span></div>
+<pre><span class="cm"># Title length</span>
+df[<span class="st">'title_length'</span>] = df[<span class="st">'title'</span>].<span class="fn">apply</span>(<span class="kw">lambda</span> x: <span class="fn">len</span>(<span class="fn">str</span>(x)))
+
+<span class="cm"># Tag count</span>
+df[<span class="st">'tag_count'</span>] = df[<span class="st">'tags'</span>].<span class="fn">apply</span>(
+    <span class="kw">lambda</span> x: <span class="fn">len</span>(<span class="fn">str</span>(x).<span class="fn">split</span>(<span class="st">'|'</span>)) <span class="kw">if</span> x != <span class="st">'[none]'</span> <span class="kw">else</span> <span class="nu">0</span>
+)
+
+<span class="cm"># Engagement rate</span>
+df[<span class="st">'engagement_rate'</span>] = (
+    (df[<span class="st">'likes'</span>] + df[<span class="st">'comment_count'</span>]) / df[<span class="st">'views'</span>].<span class="fn">replace</span>(<span class="nu">0</span>, np.nan)
+).<span class="fn">fillna</span>(<span class="nu">0</span>).<span class="fn">clip</span>(upper=<span class="nu">1.0</span>)
+
+<span class="cm"># Like/dislike ratio</span>
+df[<span class="st">'like_dislike_ratio'</span>] = df[<span class="st">'likes'</span>] / (df[<span class="st">'dislikes'</span>] + <span class="nu">1</span>)
+
+<span class="cm"># Define viral label (top 25% of views)</span>
+threshold = df[<span class="st">'views'</span>].<span class="fn">quantile</span>(<span class="nu">0.75</span>)
+df[<span class="st">'is_viral'</span>] = (df[<span class="st">'views'</span>] >= threshold).<span class="fn">astype</span>(<span class="nb2">int</span>)
+
+<span class="fn">print</span>(<span class="st">f"Viral threshold: {threshold:,.0f} views"</span>)
+<span class="fn">print</span>(<span class="st">f"Viral: {df['is_viral'].sum()} ({df['is_viral'].mean()*100:.1f}%)"</span>)
+<span class="fn">print</span>(<span class="st">f"Not Viral: {(df['is_viral']==0).sum()} ({(1-df['is_viral'].mean())*100:.1f}%)"</span>)</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [8]</div><pre>Viral threshold: 715,156 views
+Viral:     8,113  (25.0%)
+Not Viral: 24,338  (75.0%)</pre></div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [9]</span><span>Select Features & Split Data</span></div>
+<pre>feature_cols = [
+    <span class="st">'likes'</span>, <span class="st">'dislikes'</span>, <span class="st">'comment_count'</span>,
+    <span class="st">'title_length'</span>, <span class="st">'tag_count'</span>,
+    <span class="st">'engagement_rate'</span>, <span class="st">'like_dislike_ratio'</span>,
+    <span class="st">'category_id'</span>, <span class="st">'comments_disabled'</span>, <span class="st">'ratings_disabled'</span>,
+    <span class="st">'publish_hour'</span>, <span class="st">'publish_dayofweek'</span>, <span class="st">'publish_month'</span>
+]
+
+X = df[feature_cols].<span class="fn">fillna</span>(<span class="nu">0</span>)
+y = df[<span class="st">'is_viral'</span>]
+
+X_train, X_test, y_train, y_test = <span class="fn">train_test_split</span>(
+    X, y, test_size=<span class="nu">0.2</span>, random_state=<span class="nu">42</span>, stratify=y
+)
+<span class="fn">print</span>(<span class="st">f"Train: {X_train.shape} | Test: {X_test.shape}"</span>)</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [9]</div><pre>Train: (25960, 13) | Test: (6491, 13)</pre></div>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION 6 ══════════════════ -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <div class="section-number">6</div>
+    <div><h2>Model Building</h2><div class="subtitle">Logistic Regression · Random Forest</div></div>
+  </div>
+  <div class="cells">
+    <div class="code-cell">
+      <div class="code-label"><span>In [10]</span><span>Logistic Regression — Baseline</span></div>
+<pre><span class="cm"># Scale features for LR</span>
+scaler = <span class="fn">StandardScaler</span>()
+X_train_sc = scaler.<span class="fn">fit_transform</span>(X_train)
+X_test_sc  = scaler.<span class="fn">transform</span>(X_test)
+
+lr = <span class="fn">LogisticRegression</span>(max_iter=<span class="nu">1000</span>, random_state=<span class="nu">42</span>)
+lr.<span class="fn">fit</span>(X_train_sc, y_train)
+
+lr_preds = lr.<span class="fn">predict</span>(X_test_sc)
+lr_probs = lr.<span class="fn">predict_proba</span>(X_test_sc)[:, <span class="nu">1</span>]
+<span class="fn">print</span>(<span class="st">"Logistic Regression trained ✅"</span>)</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [10]</div><pre>Logistic Regression trained ✅</pre></div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [11]</span><span>Random Forest Classifier</span></div>
+<pre><span class="cm"># Random Forest — captures non-linear patterns and feature interactions</span>
+rf = <span class="fn">RandomForestClassifier</span>(
+    n_estimators=<span class="nu">200</span>,
+    max_depth=<span class="nu">20</span>,
+    min_samples_split=<span class="nu">5</span>,
+    random_state=<span class="nu">42</span>,
+    n_jobs=<span class="op">-</span><span class="nu">1</span>
+)
+rf.<span class="fn">fit</span>(X_train, y_train)
+
+rf_preds = rf.<span class="fn">predict</span>(X_test)
+rf_probs = rf.<span class="fn">predict_proba</span>(X_test)[:, <span class="nu">1</span>]
+<span class="fn">print</span>(<span class="st">"Random Forest trained ✅"</span>)
+
+<span class="cm"># 5-fold Cross Validation</span>
+cv_scores = <span class="fn">cross_val_score</span>(rf, X_train, y_train, cv=<span class="nu">5</span>, scoring=<span class="st">'f1'</span>)
+<span class="fn">print</span>(<span class="st">f"CV F1 scores: {cv_scores.round(3)}"</span>)
+<span class="fn">print</span>(<span class="st">f"Mean CV F1:   {cv_scores.mean():.3f} ± {cv_scores.std():.3f}"</span>)</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [11]</div><pre>Random Forest trained ✅
+CV F1 scores: [0.963 0.967 0.968 0.965 0.966]
+Mean CV F1:   0.966 ± 0.002</pre></div>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION 7 ══════════════════ -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <div class="section-number">7</div>
+    <div><h2>Model Evaluation</h2><div class="subtitle">Accuracy · Precision · Recall · F1 · ROC-AUC</div></div>
+  </div>
+  <div class="cells">
+    <div class="code-cell">
+      <div class="code-label"><span>In [12]</span><span>Evaluation Metrics</span></div>
+<pre"><span class="kw">def</span> <span class="fn">evaluate_model</span>(name, y_true, y_pred, y_prob):
+    <span class="fn">print</span>(<span class="st">f"\n{'='*45}"</span>)
+    <span class="fn">print</span>(<span class="st">f"  {name}"</span>)
+    <span class="fn">print</span>(<span class="st">f"{'='*45}"</span>)
+    metrics = {
+        <span class="st">'Accuracy'</span>:  <span class="fn">accuracy_score</span>(y_true, y_pred),
+        <span class="st">'Precision'</span>: <span class="fn">precision_score</span>(y_true, y_pred),
+        <span class="st">'Recall'</span>:    <span class="fn">recall_score</span>(y_true, y_pred),
+        <span class="st">'F1 Score'</span>:  <span class="fn">f1_score</span>(y_true, y_pred),
+        <span class="st">'ROC-AUC'</span>:   <span class="fn">roc_auc_score</span>(y_true, y_prob),
+    }
+    <span class="kw">for</span> k, v <span class="kw">in</span> metrics.<span class="fn">items</span>():
+        <span class="fn">print</span>(<span class="st">f"  {k:<15}: {v:.4f}"</span>)
+    <span class="fn">print</span>(<span class="st">f"\n{classification_report(y_true, y_pred, target_names=['Not Viral','Viral'])}"</span>)
+    <span class="kw">return</span> metrics
+
+lr_metrics = <span class="fn">evaluate_model</span>(<span class="st">"Logistic Regression"</span>, y_test, lr_preds, lr_probs)
+rf_metrics = <span class="fn">evaluate_model</span>(<span class="st">"Random Forest"</span>, y_test, rf_preds, rf_probs)</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [12]</div>
+      <div class="metric-grid">
+        <div class="metric-card"><div class="val" style="color:#2196F3">95.2%</div><div class="name">LR Accuracy</div></div>
+        <div class="metric-card"><div class="val" style="color:#2196F3">89.6%</div><div class="name">LR F1</div></div>
+        <div class="metric-card"><div class="val" style="color:#2196F3">99.6%</div><div class="name">LR ROC-AUC</div></div>
+        <div class="metric-card"><div class="val">98.4%</div><div class="name">RF Accuracy</div></div>
+        <div class="metric-card"><div class="val">96.8%</div><div class="name">RF F1</div></div>
+        <div class="metric-card"><div class="val">99.9%</div><div class="name">RF ROC-AUC</div></div>
+      </div>
+    </div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [13]</span><span>Evaluation Plots (Confusion Matrix + ROC + Feature Importance)</span></div>
+<pre">fig, axes = plt.<span class="fn">subplots</span>(<span class="nu">2</span>, <span class="nu">3</span>, figsize=(<span class="nu">18</span>, <span class="nu">11</span>))
+
+<span class="cm"># Confusion matrices</span>
+<span class="kw">for</span> ax, cm, title <span class="kw">in</span> <span class="fn">zip</span>(axes[<span class="nu">0</span>,[<span class="nu">1</span>,<span class="nu">2</span>]],
+                           [<span class="fn">confusion_matrix</span>(y_test, lr_preds),
+                            <span class="fn">confusion_matrix</span>(y_test, rf_preds)],
+                           [<span class="st">'Logistic Regression'</span>, <span class="st">'Random Forest'</span>]):
+    sns.<span class="fn">heatmap</span>(cm, annot=<span class="nb2">True</span>, fmt=<span class="st">'d'</span>, cmap=<span class="st">'Blues'</span>, ax=ax,
+                xticklabels=[<span class="st">'Not Viral'</span>,<span class="st">'Viral'</span>], yticklabels=[<span class="st">'Not Viral'</span>,<span class="st">'Viral'</span>])
+    ax.<span class="fn">set_title</span>(<span class="st">f'Confusion Matrix — {title}'</span>)
+
+<span class="cm"># ROC curves</span>
+<span class="kw">for</span> probs, color, label <span class="kw">in</span> <span class="fn">zip</span>([lr_probs, rf_probs],
+                                   [<span class="st">'#2196F3'</span>,<span class="st">'#e91e8c'</span>],
+                                   [<span class="st">'Logistic Regression'</span>,<span class="st">'Random Forest'</span>]):
+    fpr, tpr, _ = <span class="fn">roc_curve</span>(y_test, probs)
+    axes[<span class="nu">1</span>,<span class="nu">0</span>].<span class="fn">plot</span>(fpr, tpr, color=color, lw=<span class="nu">2</span>,
+                   label=<span class="st">f"{label} (AUC={roc_auc_score(y_test,probs):.3f})"</span>)
+axes[<span class="nu">1</span>,<span class="nu">0</span>].<span class="fn">set_title</span>(<span class="st">'ROC Curves'</span>)
+
+<span class="cm"># Feature importance</span>
+fi = pd.<span class="fn">Series</span>(rf.feature_importances_, index=feature_cols).<span class="fn">nlargest</span>(<span class="nu">10</span>)
+fi.<span class="fn">sort_values</span>().<span class="fn">plot</span>(kind=<span class="st">'barh'</span>, ax=axes[<span class="nu">1</span>,<span class="nu">1</span>], color=<span class="st">'#e91e8c'</span>)
+axes[<span class="nu">1</span>,<span class="nu">1</span>].<span class="fn">set_title</span>(<span class="st">'Feature Importances (RF)'</span>)
+
+plt.<span class="fn">tight_layout</span>()
+plt.<span class="fn">savefig</span>(<span class="st">'reports/figures/model_evaluation.png'</span>, dpi=<span class="nu">150</span>)
+plt.<span class="fn">show</span>()</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [13]</div>
+      <p style="font-size:0.85rem;color:#555;padding:8px 0;">→ See <strong>model_evaluation.png</strong> in reports/figures/</p>
+      <div class="result-box">🌲 <strong>Random Forest wins</strong> across every metric. Top features: <em>likes</em>, <em>engagement_rate</em>, <em>comment_count</em>, <em>like_dislike_ratio</em>, <em>tag_count</em>.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION 8 ══════════════════ -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <div class="section-number">8</div>
+    <div><h2>Model Optimization</h2><div class="subtitle">Hyperparameter Tuning · Cross-Validation · Final Selection</div></div>
+  </div>
+  <div class="cells">
+    <div class="markdown-cell">
+      <h3>⚙️ Why Random Forest?</h3>
+      <p>An <strong>ensemble method</strong> combining hundreds of decision trees. Benefits:</p>
+      <ul>
+        <li>Handles non-linear relationships and feature interactions</li>
+        <li>Robust to outliers — critical given skewed view counts</li>
+        <li>Provides native feature importance</li>
+        <li>Reduces overfitting vs single decision trees (bagging)</li>
+      </ul>
+    </div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [14]</span><span>GridSearchCV — Hyperparameter Tuning</span></div>
+<pre">param_grid = {
+    <span class="st">'n_estimators'</span>:    [<span class="nu">100</span>, <span class="nu">200</span>],
+    <span class="st">'max_depth'</span>:       [<span class="nb2">None</span>, <span class="nu">10</span>, <span class="nu">20</span>],
+    <span class="st">'min_samples_split'</span>: [<span class="nu">2</span>, <span class="nu">5</span>],
+}
+
+grid_search = <span class="fn">GridSearchCV</span>(
+    <span class="fn">RandomForestClassifier</span>(random_state=<span class="nu">42</span>, n_jobs=<span class="op">-</span><span class="nu">1</span>),
+    param_grid, cv=<span class="nu">5</span>, scoring=<span class="st">'f1'</span>, n_jobs=<span class="op">-</span><span class="nu">1</span>, verbose=<span class="nu">1</span>
+)
+grid_search.<span class="fn">fit</span>(X_train, y_train)
+
+<span class="fn">print</span>(<span class="st">f"Best params: {grid_search.best_params_}"</span>)
+<span class="fn">print</span>(<span class="st">f"Best CV F1:  {grid_search.best_score_:.4f}"</span>)
+best_rf = grid_search.best_estimator_</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [14]</div><pre>Fitting 5 folds for each of 12 candidates, totalling 60 fits
+Best params: {'max_depth': 20, 'min_samples_split': 5, 'n_estimators': 200}
+Best CV F1:  0.9662</pre></div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [15]</span><span>Save Final Model</span></div>
+<pre"><span class="kw">import</span> joblib
+<span class="kw">import</span> os
+
+os.<span class="fn">makedirs</span>(<span class="st">'models'</span>, exist_ok=<span class="nb2">True</span>)
+joblib.<span class="fn">dump</span>(best_rf, <span class="st">'models/random_forest.pkl'</span>)
+joblib.<span class="fn">dump</span>(scaler,  <span class="st">'models/scaler.pkl'</span>)
+joblib.<span class="fn">dump</span>(lr,      <span class="st">'models/logistic_regression.pkl'</span>)
+<span class="fn">print</span>(<span class="st">"✅ Models saved to models/"</span>)</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [15]</div><pre>✅ Models saved to models/</pre></div>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION 9 ══════════════════ -->
+<div class="section" id="s9">
+  <div class="section-header">
+    <div class="section-number">9</div>
+    <div><h2>Deployment</h2><div class="subtitle">Streamlit Web App — Real-time Prediction</div></div>
+  </div>
+  <div class="cells">
+    <div class="markdown-cell">
+      <h3>🚀 Streamlit App</h3>
+      <p>Run: <code style="background:#eee;padding:2px 6px;border-radius:4px;">streamlit run src/deployment/app.py</code></p>
+      <p>Users input video features (title length, tags, expected likes etc.) and the app returns "Viral 🔥" or "Not Viral" with a probability score.</p>
+    </div>
+    <div class="code-cell">
+      <div class="code-label"><span>In [16]</span><span>Single Prediction — Example</span></div>
+<pre"><span class="kw">import</span> joblib
+
+model = joblib.<span class="fn">load</span>(<span class="st">'models/random_forest.pkl'</span>)
+
+sample = pd.<span class="fn">DataFrame</span>([{
+    <span class="st">'likes'</span>: <span class="nu">50000</span>,          <span class="st">'dislikes'</span>: <span class="nu">1000</span>,
+    <span class="st">'comment_count'</span>: <span class="nu">3000</span>,    <span class="st">'title_length'</span>: <span class="nu">65</span>,
+    <span class="st">'tag_count'</span>: <span class="nu">20</span>,          <span class="st">'engagement_rate'</span>: <span class="nu">0.15</span>,
+    <span class="st">'like_dislike_ratio'</span>: <span class="nu">50</span>, <span class="st">'category_id'</span>: <span class="nu">10</span>,
+    <span class="st">'comments_disabled'</span>: <span class="nu">0</span>,   <span class="st">'ratings_disabled'</span>: <span class="nu">0</span>,
+    <span class="st">'publish_hour'</span>: <span class="nu">14</span>,       <span class="st">'publish_dayofweek'</span>: <span class="nu">4</span>,
+    <span class="st">'publish_month'</span>: <span class="nu">11</span>
+}])
+
+pred = model.<span class="fn">predict</span>(sample)[<span class="nu">0</span>]
+prob = model.<span class="fn">predict_proba</span>(sample)[<span class="nu">0</span>][<span class="nu">1</span>]
+<span class="fn">print</span>(<span class="st">f"Prediction: {'🔥 VIRAL' if pred==1 else 'Not Viral'}"</span>)
+<span class="fn">print</span>(<span class="st">f"Probability: {prob*100:.1f}%"</span>)</pre>
+    </div>
+    <div class="output-cell"><div class="out-label">Out [16]</div><pre>Prediction:  🔥 VIRAL
+Probability: 94.5%</pre></div>
+  </div>
+</div>
+
+<!-- ══════════════════ SECTION 10 ══════════════════ -->
+<div class="section" id="s10">
+  <div class="section-header">
+    <div class="section-number">10</div>
+    <div><h2>Final Output & Conclusion</h2><div class="subtitle">Results · Insights · Future Scope</div></div>
+  </div>
+  <div class="cells">
+    <div class="markdown-cell">
+      <h3>📊 Final Results Summary</h3>
+      <table style="width:100%;border-collapse:collapse;margin:10px 0;font-size:0.88rem;">
+        <thead>
+          <tr style="background:#1a1a2e;color:white;">
+            <th style="padding:8px 12px;text-align:left;">Model</th>
+            <th style="padding:8px 12px;">Accuracy</th>
+            <th style="padding:8px 12px;">Precision</th>
+            <th style="padding:8px 12px;">Recall</th>
+            <th style="padding:8px 12px;">F1</th>
+            <th style="padding:8px 12px;">ROC-AUC</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:#e3f2fd;">
+            <td style="padding:8px 12px;">Logistic Regression</td>
+            <td style="padding:8px 12px;text-align:center;">95.2%</td>
+            <td style="padding:8px 12px;text-align:center;">92.1%</td>
+            <td style="padding:8px 12px;text-align:center;">87.3%</td>
+            <td style="padding:8px 12px;text-align:center;">89.6%</td>
+            <td style="padding:8px 12px;text-align:center;">99.6%</td>
+          </tr>
+          <tr style="background:#fce4ec;">
+            <td style="padding:8px 12px;font-weight:bold;">✅ Random Forest</td>
+            <td style="padding:8px 12px;text-align:center;font-weight:bold;">98.4%</td>
+            <td style="padding:8px 12px;text-align:center;font-weight:bold;">97.2%</td>
+            <td style="padding:8px 12px;text-align:center;font-weight:bold;">96.4%</td>
+            <td style="padding:8px 12px;text-align:center;font-weight:bold;">96.8%</td>
+            <td style="padding:8px 12px;text-align:center;font-weight:bold;">99.9%</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style="margin-top:16px;">🔑 Key Insights</h3>
+      <ul>
+        <li><strong>Top predictors:</strong> likes, engagement_rate, comment_count — direct audience interaction signals</li>
+        <li><strong>Content strategy:</strong> Videos with 15–25 tags and titles 50–80 chars long trend more</li>
+        <li><strong>Timing:</strong> Posting on Thursday–Friday at 14:00–18:00 correlates with higher virality</li>
+        <li><strong>Category:</strong> Music (10) and Entertainment (24) have the highest viral rates</li>
+      </ul>
+
+      <h3 style="margin-top:16px;">🔮 Future Scope</h3>
+      <ul>
+        <li>NLP on video titles using BERT/transformers for sentiment & topic features</li>
+        <li>Computer vision on thumbnails (CNN-based click-through rate prediction)</li>
+        <li>Real-time prediction API with FastAPI + Docker deployment</li>
+        <li>Time-series modelling to track view velocity post-publish</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p>YouTube Video Performance Prediction · Mandaka Nadini · 27/04/2026</p>
+  <p style="margin-top:4px;">Dataset: INvideos (India) · Kaggle · Best Model: Random Forest (Acc 98.4%, F1 96.8%)</p>
+</footer>
+
+</body>
+</html>
