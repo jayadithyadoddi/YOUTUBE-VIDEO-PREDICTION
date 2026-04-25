@@ -1,1 +1,37 @@
+# Data files (large, download from Kaggle)
+data/raw/
+data/processed/
 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment
+.env
+venv/
+env/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model files (too large for git - use Git LFS or cloud storage)
+*.pkl
+*.joblib
+*.h5
+
+# Logs
+*.log
